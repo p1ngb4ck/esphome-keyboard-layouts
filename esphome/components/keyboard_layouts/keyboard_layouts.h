@@ -150,6 +150,7 @@ class KeyboardLayouts : public Component {
   void keyboard_list_local_(bool build);
   void keyboard_listed_();
   void keyboard_resolve_();
+  void attach_input_(size_t position);
   std::string keyboard_standard_(size_t input) const;
   const KbdAssign *keyboard_assigned_(const std::string &key) const;
   KbdSlot *keyboard_slot_(const std::string &name);
