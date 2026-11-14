@@ -67,4 +67,4 @@ Each `pr/` branch holds one part of this topic on top of upstream and says in it
 
 | Branch | Based on |
 |---|---|
-| `pr/keyboard-layouts` | `pr/hid` of p1ngb4ck/esphome-hid, `pr/fixed-containers` of p1ngb4ck/esphome-relay-link, `pr/storage` of p1ngb4ck/esphome-storage-interface |
+| `pr/keyboard-layouts` | `pr/hid` of p1ngb4ck/esphome-hid, `pr/relay-link` of p1ngb4ck/esphome-relay-link, `pr/storage` of p1ngb4ck/esphome-storage-interface |
