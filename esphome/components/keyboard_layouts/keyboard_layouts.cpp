@@ -2,7 +2,6 @@
 
 #ifdef USE_KEYBOARD_LAYOUTS
 
-#include "esphome/core/application.h"
 #include "esphome/core/log.h"
 #include "esphome/core/preferences.h"
 
@@ -31,52 +30,6 @@ static void copy_field(char *out, size_t size, const std::string &text) {
 
 void KeyboardLayouts::add_keyboard(hid::HIDInput *input, const std::string &name, const std::string &layout) {
   this->kbd_inputs_.push_back(KbdInput{input, name, layout, nullptr});
-  if (!App.is_setup_complete())
-    return;
-  this->attach_input_(this->kbd_inputs_.size() - 1);
-  this->keyboard_resolve_();
-  note_registration(
-      [](void *target, void *first, void *) {
-        auto *self = static_cast<KeyboardLayouts *>(target);
-        for (KbdInput &entry : self->kbd_inputs_) {
-          if (entry.input == first)
-            entry.input = nullptr;
-        }
-        self->keyboard_resolve_();
-      },
-      this, input, nullptr);
-}
-
-void KeyboardLayouts::attach_input_(size_t position) {
-  KbdInput &input = this->kbd_inputs_[position];
-  input.own = input.input->get_layout();
-  const auto index = static_cast<uint8_t>(position);
-  input.input->add_on_devices_callback([this, index]() {
-    if (this->kbd_inputs_[index].input == nullptr)
-      return;
-    std::vector<hid::InputDevice> devices;
-    this->kbd_inputs_[index].input->list_devices(devices);
-    bool added = false;
-    for (const auto &device : devices) {
-      if (device.key.rfind("usb:", 0) != 0 || (device.kinds & hid::HID_DEVICE_KEYBOARD) == 0 ||
-          this->keyboard_assigned_(device.key) != nullptr)
-        continue;
-      for (KbdAssign &entry : this->kbd_assign_->entries) {
-        if (entry.key[0] == '\0') {
-          copy_field(entry.key, sizeof(entry.key), device.key);
-          copy_field(entry.name, sizeof(entry.name), device.name);
-          entry.layout[0] = '\0';
-          entry.input = index;
-          added = true;
-          break;
-        }
-      }
-    }
-    if (added)
-      this->keyboard_save_();
-    this->keyboard_resolve_();
-    this->kbd_callbacks_.call();
-  });
 }
 
 KeyboardLayouts *KeyboardLayouts::create() {
@@ -115,8 +68,34 @@ void KeyboardLayouts::setup() {
   }
   std::memset(this->kbd_assign_, 0, sizeof(KbdAssignTable));
   this->kbd_pref_ = global_preferences->make_preference<KbdAssignTable>(KBD_PREF_KEY);
-  for (size_t position = 0; position < this->kbd_inputs_.size(); position++)
-    this->attach_input_(position);
+  for (KbdInput &input : this->kbd_inputs_) {
+    input.own = input.input->get_layout();
+    const auto index = static_cast<uint8_t>(&input - this->kbd_inputs_.data());
+    input.input->add_on_devices_callback([this, index]() {
+      std::vector<hid::InputDevice> devices;
+      this->kbd_inputs_[index].input->list_devices(devices);
+      bool added = false;
+      for (const auto &device : devices) {
+        if (device.key.rfind("usb:", 0) != 0 || (device.kinds & hid::HID_DEVICE_KEYBOARD) == 0 ||
+            this->keyboard_assigned_(device.key) != nullptr)
+          continue;
+        for (KbdAssign &entry : this->kbd_assign_->entries) {
+          if (entry.key[0] == '\0') {
+            copy_field(entry.key, sizeof(entry.key), device.key);
+            copy_field(entry.name, sizeof(entry.name), device.name);
+            entry.layout[0] = '\0';
+            entry.input = index;
+            added = true;
+            break;
+          }
+        }
+      }
+      if (added)
+        this->keyboard_save_();
+      this->keyboard_resolve_();
+      this->kbd_callbacks_.call();
+    });
+  }
   if (storage::global_storage_registry != nullptr) {
     storage::global_storage_registry->add_on_registered_callback([this](storage::Storage *) {
       if (!this->kbd_table_loaded_)
@@ -475,8 +454,7 @@ const FixedList<KeyboardLayouts::KeyboardDevice> &KeyboardLayouts::keyboard_devi
     out.push_back(KeyboardDevice{("@" + input.name).c_str(), input.name.c_str(), static_cast<uint8_t>(i), true,
                                  standard != nullptr ? standard->layout : input.layout.c_str()});
     std::vector<hid::InputDevice> devices;
-    if (input.input != nullptr)
-      input.input->list_devices(devices);
+    input.input->list_devices(devices);
     for (const auto &device : devices) {
       if ((device.kinds & hid::HID_DEVICE_KEYBOARD) == 0) {
         others.push_back(device.key);
@@ -518,10 +496,8 @@ bool KeyboardLayouts::keyboard_assign(const std::string &key, const std::string 
         return false;
     } else {
       std::vector<hid::InputDevice> devices;
-      for (const KbdInput &input : this->kbd_inputs_) {
-        if (input.input != nullptr)
-          input.input->list_devices(devices);
-      }
+      for (const KbdInput &input : this->kbd_inputs_)
+        input.input->list_devices(devices);
       bool known = false;
       for (const auto &device : devices) {
         if (device.key == key) {
@@ -625,8 +601,6 @@ void KeyboardLayouts::keyboard_resolve_() {
   };
   for (size_t i = 0; i < this->kbd_inputs_.size(); i++) {
     const KbdInput &input = this->kbd_inputs_[i];
-    if (input.input == nullptr)
-      continue;
     const std::string standard = this->keyboard_standard_(i);
     want(standard);
     KbdSlot *slot = standard.empty() ? nullptr : this->keyboard_slot_(standard);
