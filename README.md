@@ -60,3 +60,11 @@ core of the build host stays as installed.
 The layouts are generated from freedesktop.org's
 [xkeyboard-config](https://gitlab.freedesktop.org/xkeyboard-config/xkeyboard-config). Everyone this project builds
 on: [ATTRIBUTIONS.md](https://github.com/p1ngb4ck/esphome/blob/dev/ATTRIBUTIONS.md).
+
+## Branch structure
+
+Each `pr/` branch holds one part of this topic on top of upstream and says in its `BRANCH.md` what it is based on. `main` holds all of them.
+
+| Branch | Based on |
+|---|---|
+| `pr/keyboard-layouts` | `pr/hid` of p1ngb4ck/esphome-hid, `pr/fixed-containers` of p1ngb4ck/esphome-relay-link, `pr/storage` of p1ngb4ck/esphome-storage-interface |
